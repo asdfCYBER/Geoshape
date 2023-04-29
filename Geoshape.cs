@@ -1,13 +1,8 @@
 ﻿using System;
 using System.Reflection;
-using UnityEngine;
-using UnityEngine.SceneManagement;
-using Xenonauts;
-using Xenonauts.Strategy.Systems;
-using Xenonauts.Strategy.Events;
-using Artitas;
-using Artitas.Utils;
 using HarmonyLib;
+using UnityEngine;
+using Xenonauts;
 
 namespace Geoshape
 {

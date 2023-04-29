@@ -16,15 +16,16 @@ namespace Geoshape.Patches
         {
             PulseLine originalLine = __instance.Visualizer;
 
-            long combinedID = __instance.Target.ID << 16 + __instance.Target.Goal().Value.ID;
+            ulong combinedID = ((ulong)__instance.Target.ID << 32) + (uint)__instance.Target.Goal().Value.ID;
             if (!GreatCircleArc.Arcs.ContainsKey(combinedID))
             {
+                // Clamp the maximum height to just slightly below the north pole
                 if (originalLine.End.y >= _northpoleYCoord - 0.1f)
                     originalLine.End = new Vector2(originalLine.End.x, _northpoleYCoord - 0.1f);
 
                 GreatCircleArc.Arcs[combinedID] = new GreatCircleArc(
-                    Geometry.GeoscapeToNormal(originalLine.Start),
-                    Geometry.GeoscapeToNormal(originalLine.End),
+                    originalLine.Start,
+                    originalLine.End,
                     steps: 100,
                     __instance
                 );

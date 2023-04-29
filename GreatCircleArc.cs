@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using UnityEngine;
+﻿using System.Collections.Generic;
 using Artitas;
+using UnityEngine;
 using Xenonauts.Strategy;
 using Xenonauts.Strategy.Scripts;
 using Xenonauts.Strategy.UI;
@@ -12,7 +9,8 @@ namespace Geoshape
 {
     public class GreatCircleArc
     {
-        public static Dictionary<long, GreatCircleArc> Arcs { get; } = new Dictionary<long, GreatCircleArc>();
+        public static Dictionary<ulong, GreatCircleArc> Arcs { get; }
+            = new Dictionary<ulong, GreatCircleArc>();
         public static bool TryGetArc(Entity entity, out GreatCircleArc arc)
         {
             if (!entity.HasGoal())
@@ -21,7 +19,7 @@ namespace Geoshape
                 return false;
             }
             
-            long combinedID = entity.ID << 16 + entity.Goal().Value.ID;
+            ulong combinedID = ((ulong)entity.ID << 32) + (uint)entity.Goal().Value.ID;
             return Arcs.TryGetValue(combinedID, out arc);
         }
 
@@ -34,25 +32,36 @@ namespace Geoshape
 
         /// <summary>
         /// Create a great circle arc between two normal vectors with <paramref name="steps"/>
-        /// line segments parented to <paramref name="parent"/>.
+        /// line segments parented to <paramref name="parent"/>. If <paramref name="steps"/> is
+        /// equal to 0, no lines are drawn.
         /// </summary>
-        /// <param name="start"></param>
-        /// <param name="end"></param>
-        /// <param name="steps"></param>
-        public GreatCircleArc(Vector3 start, Vector3 end, int steps, PulseLineIconController parent)
+        public GreatCircleArc(Vector2 start_geoscape, Vector2 end_geoscape,
+            ushort steps, PulseLineIconController parent)
         {
-            Start = start;
-            End = end;
+            Start = Geometry.GeoscapeToNormal(start_geoscape);
+            End = Geometry.GeoscapeToNormal(end_geoscape);
             Lines = new PulseLine[steps];
+            
+            if (steps > 0 && parent != null)
+                Draw(steps, parent);
+        }
 
+        /// <summary>
+        /// Calculate the start and end point for all <paramref name="steps"/> lines
+        /// </summary>
+        private void Draw(int steps, PulseLineIconController parent)
+        {
+            // Calculate the start and end point for every line, can be optimized
+            // because each point's end is the next one's start
             for (int i = 0; i < steps - 1; i++)
             {
                 float fraction_start = (float)i / (steps - 1);
                 float fraction_end = (float)(i + 1) / (steps - 1);
 
-                Vector3 segment_start = (start * (1 - fraction_start) + end * fraction_start).normalized;
-                Vector3 segment_end = (start * (1 - fraction_end) + end * fraction_end).normalized;
+                Vector3 segment_start = (Start * (1 - fraction_start) + End * fraction_start).normalized;
+                Vector3 segment_end   = (Start * (1 - fraction_end)   + End * fraction_end).normalized;
 
+                // Draw a line between segment_start and segment_end (in geoscape coordinates)
                 PulseLine line = UnityEngine.Object.Instantiate(_prefabLine, parent.transform);
                 line.Start = Geometry.NormalToGeoscape(segment_start);
                 line.End = Geometry.NormalToGeoscape(segment_end);
@@ -63,7 +72,7 @@ namespace Geoshape
         }
 
         /// <summary>
-        /// Return the position <paramref name="distance"/> km away when following this 
+        /// Return the position <paramref name="distance_km"/> km away when following this 
         /// great circle from the current location <paramref name="position_geoscape"/>
         /// </summary>
         public Vector2 MoveDistanceFrom(Vector2 position_geoscape, float distance_km)
@@ -80,17 +89,13 @@ namespace Geoshape
         }
 
         /// <summary>
-        /// Calculate the angle between the direction vector and the vector pointing north
+        /// Approximate the direction an object at <paramref name="position_geoscape"/> would move in
         /// </summary>
-        public Vector2 BearingAt(Vector2 position_geoscape)
+        public Vector2 DirectionAt(Vector2 position_geoscape)
         {
-            Vector3 north = new Vector3(0, 0, 1);
-            Vector3 position = Geometry.GeoscapeToNormal(position_geoscape);
-            Vector3 greatCircleThroughNorth = Vector3.Cross(position, north);
-            Vector3 cross = Vector3.Cross(GreatCircle, greatCircleThroughNorth);
-            float sin_theta = cross.Norm() * Mathf.Sign(Vector3.Dot(cross, position));
-            float cos_theta = Vector3.Dot(GreatCircle, greatCircleThroughNorth);
-            return new Vector2(sin_theta, cos_theta);
+            Vector2 position_close = MoveDistanceFrom(position_geoscape, 1);
+            Vector2 difference = position_close - position_geoscape;
+            return difference.normalized;
         }
     }
 }

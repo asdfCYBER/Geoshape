@@ -1,14 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Reflection;
-using Artitas;
-using Xenonauts.Strategy.Systems;
-using Xenonauts.Strategy.Scripts;
-using Xenonauts.Strategy;
-using UnityEngine;
+﻿using Artitas;
 using HarmonyLib;
+using UnityEngine;
+using Xenonauts.Strategy.Systems;
 
 namespace Geoshape.Patches
 {
