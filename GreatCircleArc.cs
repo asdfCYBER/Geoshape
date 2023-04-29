@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using UnityEngine;
+using Artitas;
 using Xenonauts.Strategy;
 using Xenonauts.Strategy.Scripts;
 using Xenonauts.Strategy.UI;
@@ -11,7 +12,18 @@ namespace Geoshape
 {
     public class GreatCircleArc
     {
-        public static Dictionary<int, GreatCircleArc> Arcs { get; } = new Dictionary<int, GreatCircleArc>();
+        public static Dictionary<long, GreatCircleArc> Arcs { get; } = new Dictionary<long, GreatCircleArc>();
+        public static bool TryGetArc(Entity entity, out GreatCircleArc arc)
+        {
+            if (!entity.HasGoal())
+            {
+                arc = null;
+                return false;
+            }
+            
+            long combinedID = entity.ID << 16 + entity.Goal().Value.ID;
+            return Arcs.TryGetValue(combinedID, out arc);
+        }
 
         public Vector3 Start { get; }
         public Vector3 End { get; }
@@ -29,7 +41,10 @@ namespace Geoshape
         /// <param name="steps"></param>
         public GreatCircleArc(Vector3 start, Vector3 end, int steps, PulseLineIconController parent)
         {
+            Start = start;
+            End = end;
             Lines = new PulseLine[steps];
+
             for (int i = 0; i < steps - 1; i++)
             {
                 float fraction_start = (float)i / (steps - 1);
@@ -47,9 +62,13 @@ namespace Geoshape
             }
         }
 
-        public Vector2 MoveAlongArc(Vector2 position_geoscape, float distance)
+        /// <summary>
+        /// Return the position <paramref name="distance"/> km away when following this 
+        /// great circle from the current location <paramref name="position_geoscape"/>
+        /// </summary>
+        public Vector2 MoveDistanceFrom(Vector2 position_geoscape, float distance_km)
         {
-            float angle = Geometry.AngleFromDistance(distance);
+            float angle = Geometry.AngleFromDistance(distance_km);
 
             Vector3 position = Geometry.GeoscapeToNormal(position_geoscape);
             Vector3 direction = Vector3.Cross(GreatCircle, position);
@@ -57,7 +76,21 @@ namespace Geoshape
 
             return Geometry.NormalToGeoscape(destination);
 
-            // update line
+            // TODO: update line to remove passed segments
+        }
+
+        /// <summary>
+        /// Calculate the angle between the direction vector and the vector pointing north
+        /// </summary>
+        public Vector2 BearingAt(Vector2 position_geoscape)
+        {
+            Vector3 north = new Vector3(0, 0, 1);
+            Vector3 position = Geometry.GeoscapeToNormal(position_geoscape);
+            Vector3 greatCircleThroughNorth = Vector3.Cross(position, north);
+            Vector3 cross = Vector3.Cross(GreatCircle, greatCircleThroughNorth);
+            float sin_theta = cross.Norm() * Mathf.Sign(Vector3.Dot(cross, position));
+            float cos_theta = Vector3.Dot(GreatCircle, greatCircleThroughNorth);
+            return new Vector2(sin_theta, cos_theta);
         }
     }
 }

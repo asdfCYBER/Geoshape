@@ -16,12 +16,13 @@ namespace Geoshape.Patches
         {
             PulseLine originalLine = __instance.Visualizer;
 
-            if (!GreatCircleArc.Arcs.ContainsKey(__instance.GetInstanceID()))
+            long combinedID = __instance.Target.ID << 16 + __instance.Target.Goal().Value.ID;
+            if (!GreatCircleArc.Arcs.ContainsKey(combinedID))
             {
                 if (originalLine.End.y >= _northpoleYCoord - 0.1f)
                     originalLine.End = new Vector2(originalLine.End.x, _northpoleYCoord - 0.1f);
 
-                GreatCircleArc.Arcs[__instance.GetInstanceID()] = new GreatCircleArc(
+                GreatCircleArc.Arcs[combinedID] = new GreatCircleArc(
                     Geometry.GeoscapeToNormal(originalLine.Start),
                     Geometry.GeoscapeToNormal(originalLine.End),
                     steps: 100,

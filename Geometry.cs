@@ -11,7 +11,7 @@ namespace Geoshape
 {
     public static class Geometry
     {
-        public const int Radius = 6_371_000;  //  Radius of Earth in meters
+        public const int Radius = 6371;  //  Radius of Earth in km
 
         private static Vector2 _originCorrection = new Vector2(897, 464);  // Move the origin to Null Island
 
@@ -19,7 +19,8 @@ namespace Geoshape
         private static float DegToRad(float degrees) => degrees * PI / 180f;
         private static float RadToDeg(float radians) => radians / PI * 180f;
         private static float Square(float value) => Pow(value, 2);   // Why does csharp still not have an operator for this?
-        private static float Norm(Vector2 vector) => Norm(vector.x, vector.y);
+        public static float Norm(this Vector2 vector) => vector.magnitude;
+        public static float Norm(this Vector3 vector) => vector.magnitude;
         private static float Norm(float x, float y) => Sqrt(Square(x) + Square(y));  // Euclidean norm
         #endregion
 
@@ -90,6 +91,9 @@ namespace Geoshape
             => GCSToNormal(GeoscapeToGCS(position_geoscape));
         #endregion
 
+        /// <summary>
+        /// Return the central angle between two points
+        /// </summary>
         public static float AngleBetweenPoints(Vector3 normalA, Vector3 normalB)
         {
             float crossterm = Norm(Vector3.Cross(normalA, normalB));
@@ -97,8 +101,11 @@ namespace Geoshape
             return Atan2(crossterm, dotterm);
         }
 
-        public static float AngleFromDistance(float distance)
-            => RadToDeg(distance / Radius);
+        /// <summary>
+        /// Return the central angle from a circle segment length
+        /// </summary>
+        public static float AngleFromDistance(float distance_km)
+            => distance_km / Radius;
 
         public static float DistanceBetweenPoints(Vector3 normalA, Vector3 normalB)
             => Radius * AngleBetweenPoints(normalA, normalB);
