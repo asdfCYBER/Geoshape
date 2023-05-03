@@ -13,7 +13,7 @@ namespace Geoshape
         #region Some things UnityEngine.Mathf should have but doesn't
         private static float DegToRad(float degrees) => degrees * PI / 180f;
         private static float RadToDeg(float radians) => radians / PI * 180f;
-        private static float Square(float value) => Pow(value, 2);   // Why does csharp still not have an operator for this?
+        public static float Square(this float value) => value * value;
         public static float Norm(this Vector2 vector) => vector.magnitude;
         public static float Norm(this Vector3 vector) => vector.magnitude;
         private static float Norm(float x, float y) => Sqrt(Square(x) + Square(y));  // Euclidean norm
@@ -84,6 +84,13 @@ namespace Geoshape
         /// </summary>
         public static Vector3 GeoscapeToNormal(Vector2 position_geoscape)
             => GCSToNormal(GeoscapeToGCS(position_geoscape));
+
+        /// <summary>
+        /// Convert a geoscape position to the position it would be at on Earth
+        /// </summary>
+        /// <returns></returns>
+        public static Vector3 GeoscapeToCartesianPosition(Vector2 position_geoscape)
+            => Radius * GeoscapeToNormal(position_geoscape);
         #endregion
 
         /// <summary>
@@ -102,7 +109,18 @@ namespace Geoshape
         public static float AngleFromDistance(float distance_km)
             => distance_km / Radius;
 
+        /// <summary>
+        /// Calculate the distance between <paramref name="normalA"/>
+        /// and <paramref name="normalB"/> in km
+        /// </summary>
         public static float DistanceBetweenPoints(Vector3 normalA, Vector3 normalB)
             => Radius * AngleBetweenPoints(normalA, normalB);
+
+        /// <summary>
+        /// Calculate the time it takes in hours to travel from <paramref name="normalA"/> 
+        /// to <paramref name="normalB"/> at <paramref name="speed"/> km/h
+        /// </summary>
+        public static float TimeBetweenPoints(Vector3 normalA, Vector3 normalB, float speed)
+            => DistanceBetweenPoints(normalA, normalB) / speed;
     }
 }

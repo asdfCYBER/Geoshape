@@ -25,7 +25,7 @@ namespace Geoshape.Patches
                 // Get the elapsed time, multiply by the speed and move that much distance along the great circle
                 float hours = (float)(report.after - report.before).TotalHours;
                 float distance_km = AircraftSystem.ToKPH(movable.Speed()) * hours;
-                Vector2 newPosition = arc.MoveDistanceFrom(movable.Position(), distance_km);
+                Vector2 newPosition = arc.MoveDistanceFrom((Vector2)movable.Position(), distance_km);
                 movable.AddPosition(newPosition);
             }
 

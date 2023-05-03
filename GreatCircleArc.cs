@@ -77,15 +77,18 @@ namespace Geoshape
         /// </summary>
         public Vector2 MoveDistanceFrom(Vector2 position_geoscape, float distance_km)
         {
-            float angle = Geometry.AngleFromDistance(distance_km);
-
             Vector3 position = Geometry.GeoscapeToNormal(position_geoscape);
-            Vector3 direction = Vector3.Cross(GreatCircle, position);
-            Vector3 destination = position * Mathf.Cos(angle) + direction * Mathf.Sin(angle);
-
+            Vector3 destination = MoveDistanceFrom(position, distance_km);
             return Geometry.NormalToGeoscape(destination);
 
             // TODO: update line to remove passed segments
+        }
+
+        public Vector3 MoveDistanceFrom(Vector3 position, float distance_km)
+        {
+            float angle = Geometry.AngleFromDistance(distance_km);
+            Vector3 direction = Vector3.Cross(GreatCircle, position);
+            return position * Mathf.Cos(angle) + direction * Mathf.Sin(angle);
         }
 
         /// <summary>

@@ -59,6 +59,7 @@
     <Compile Include="Geometry.cs" />
     <Compile Include="Geoshape.cs" />
     <Compile Include="GreatCircleArc.cs" />
+    <Compile Include="Navigation.cs" />
     <Compile Include="Patches\MoveEntitiesOnGeoscapePatch.cs" />
     <Compile Include="Patches\NavigationStaticGoalPatch.cs" />
     <Compile Include="Patches\OnSetTargetPatch.cs" />
