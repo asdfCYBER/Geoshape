@@ -7,12 +7,48 @@ using UnityEngine;
 using Xenonauts.Strategy;
 using Xenonauts.Strategy.Scripts;
 using Xenonauts.Strategy.Systems;
+using Xenonauts.Strategy.Factories;
 
 namespace Geoshape
 {
     public static class Navigation
     {
-        public static Vector3 GetInterceptionPoint(Entity interceptor, Entity target)
+        public static void MoveEntity(Entity entity, TimeSpan timeElapsed)
+        {
+            Entity target = entity.Goal();
+            if (!target.HasPosition())
+                return;
+
+            if (StrategyArchetypes.CanMove.Accepts(target) && !target.IsLinkedToGoal(entity))
+                ToMovingTarget(entity, target, timeElapsed);
+            else
+                ToStaticTarget(entity, target, timeElapsed);
+        }
+
+        private static void ToMovingTarget(Entity entity, Entity target, TimeSpan timeElapsed)
+        {
+            
+        }
+
+        private static void ToStaticTarget(Entity entity, Entity target, TimeSpan timeElapsed)
+        {
+            if (!GreatCircleArc.TryGetArc(entity, out GreatCircleArc arc))
+            {
+                Debug.Log($"[Geoshape] No great circle arc found for entity {entity})");
+            }
+
+            // Get the elapsed time, multiply by the speed and
+            // move that much distance along the great circle
+            float hours = (float)timeElapsed.TotalHours;
+            float distance_km = AircraftSystem.ToKPH(entity.Speed()) * hours;
+            Vector2 newPosition = arc.MoveDistanceFrom((Vector2)entity.Position(), distance_km);
+            Vector2 direction = arc.DirectionAt((Vector2)entity.Position());
+
+            entity.AddPosition(newPosition);
+            entity.AddRotation(Quaternion.LookRotation(Vector3.forward, direction));
+        }
+
+        private static Vector3 GetInterceptionPoint(Entity interceptor, Entity target)
         {
             if (!GreatCircleArc.TryGetArc(target, out GreatCircleArc targetArc))
             {
@@ -70,7 +106,8 @@ namespace Geoshape
                 throw new ArgumentException("The sign of function(lowerBound) can not be " +
                     "the same as the sign of function(upperBound)");
 
-            // Bisection method: bisect the search domain each step until a solution is found
+            // Bisection method: halve the search domain each step until every point
+            // in the domain is at most 'tolerance' away from the exact solution
             int i = 0;
             while (i < maxIterations)
             {
