@@ -32,9 +32,11 @@ namespace Geoshape
 
         private static void ToStaticTarget(Entity entity, Entity target, TimeSpan timeElapsed)
         {
-            if (!GreatCircleArc.TryGetArc(entity, out GreatCircleArc arc))
+            GreatCircleArc arc = GreatCircleArc.GetArc(entity);
+            if (arc == null)
             {
                 Debug.Log($"[Geoshape] No great circle arc found for entity {entity})");
+                return;
             }
 
             // Get the elapsed time, multiply by the speed and
@@ -50,7 +52,8 @@ namespace Geoshape
 
         private static Vector3 GetInterceptionPoint(Entity interceptor, Entity target)
         {
-            if (!GreatCircleArc.TryGetArc(target, out GreatCircleArc targetArc))
+            GreatCircleArc targetArc = GreatCircleArc.GetArc(target);
+            if (targetArc == null)
             {
                 Debug.Log($"[Geoshape] Unable to get the great circle for {target.Name()}");
                 return target.Position();

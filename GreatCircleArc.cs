@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Artitas;
+using Common.UI.DataStructures;
 using UnityEngine;
 using Xenonauts.Strategy;
 using Xenonauts.Strategy.Scripts;
@@ -9,57 +10,114 @@ namespace Geoshape
 {
     public class GreatCircleArc
     {
-        public static Dictionary<ulong, GreatCircleArc> Arcs { get; }
-            = new Dictionary<ulong, GreatCircleArc>();
-        public static bool TryGetArc(Entity entity, out GreatCircleArc arc)
-        {
-            if (!entity.HasGoal())
-            {
-                arc = null;
-                return false;
-            }
-            
-            ulong combinedID = ((ulong)entity.ID << 32) + (uint)entity.Goal().Value.ID;
-            return Arcs.TryGetValue(combinedID, out arc);
-        }
+        public static Dictionary<int, GreatCircleArc> Arcs { get; }
+            = new Dictionary<int, GreatCircleArc>();
 
-        public Vector3 Start { get; }
-        public Vector3 End { get; }
-        public Vector3 GreatCircle => Vector3.Cross(Start, End);
+        public Vector2 Start { get; private set; }
+        public Vector2 End { get; private set; }
         private PulseLine[] Lines { get; }
 
-        private readonly PulseLine _prefabLine = StrategyConstants.DEFAULT_PULSE_LINE.Get();
+        private static readonly PulseLine _prefabLine = StrategyConstants.DEFAULT_PULSE_LINE.Get();
+        private static readonly float _northpoleYCoord = Geometry.GCSToGeoscape(new Vector2(90, 0)).y;
 
         /// <summary>
         /// Create a great circle arc between two normal vectors with <paramref name="steps"/>
         /// line segments parented to <paramref name="parent"/>. If <paramref name="steps"/> is
-        /// equal to 0, no lines are drawn.
+        /// equal to 0, no lines are drawn. Disable the original line.
         /// </summary>
         public GreatCircleArc(Vector2 start_geoscape, Vector2 end_geoscape,
             ushort steps, PulseLineIconController parent)
         {
-            Start = Geometry.GeoscapeToNormal(start_geoscape);
-            End = Geometry.GeoscapeToNormal(end_geoscape);
-            Lines = new PulseLine[steps];
-            
+            // Ensure the coordinates are valid
+            if (start_geoscape.y > _northpoleYCoord)
+                start_geoscape.y = _northpoleYCoord;
+            if (end_geoscape.y > _northpoleYCoord)
+                end_geoscape.y = _northpoleYCoord;
+
+            Start = start_geoscape;
+            End = end_geoscape;
+
             if (steps > 0 && parent != null)
+            {
+                Lines = new PulseLine[steps];
                 Draw(steps, parent);
+                parent.Visualizer?.gameObject?.SetActive(false);
+            }
+        }
+
+        /// <summary>
+        /// Return the great circle arc that <paramref name="entity"/> is following
+        /// </summary>
+        public static GreatCircleArc GetArc(Entity entity)
+        {
+            Vector2 targetPosition = entity.Goal().Value.Position();
+            if (Arcs.TryGetValue(entity.ID, out GreatCircleArc arc))
+            {
+                // Update the arc if the target position has changed
+                if (arc.End != targetPosition)
+                    arc.Update(entity);
+
+                return arc;
+            }
+            else
+            {
+                // No arc exists yet, so create a new one
+                PulseLineIconController parent = FindPulseLineController(entity);
+                Arcs[entity.ID] = new GreatCircleArc(entity.Position(), targetPosition, 100, parent);
+                return Arcs[entity.ID];
+            }
+        }
+
+        /// <summary>
+        /// Update the start- and endpoint of the great circle arc <paramref name="entity"/>
+        /// is currently following, and redraw the lines accordingly.
+        /// </summary>
+        public void Update(Entity entity)
+        {
+            Start = entity.Position();
+            End = entity.Goal().Value.Position();
+
+            // Calculate the updated positions for all lines
+            if (Lines == null || Lines.Length == 0)
+                return;
+
+            Vector3 start = Geometry.GeoscapeToNormal(Start);
+            Vector3 end = Geometry.GeoscapeToNormal(End);
+
+            for (ushort i = 0; i < Lines.Length; i++)
+            {
+                float fraction_start = (float)i / (Lines.Length - 1);
+                float fraction_end = (float)(i + 1) / (Lines.Length - 1);
+                
+                Vector3 segment_start = (start * (1 - fraction_start) + end * fraction_start).normalized;
+                Vector3 segment_end   = (start * (1 - fraction_end)   + end * fraction_end).normalized;
+
+                // Update the lines
+                if (Lines[i] != null)
+                {
+                    Lines[i].Start = Geometry.NormalToGeoscape(segment_start);
+                    Lines[i].End = Geometry.NormalToGeoscape(segment_end);
+                }
+            }
         }
 
         /// <summary>
         /// Calculate the start and end point for all <paramref name="steps"/> lines
         /// </summary>
-        private void Draw(int steps, PulseLineIconController parent)
+        private void Draw(ushort steps, PulseLineIconController parent)
         {
+            Vector3 start = Geometry.GeoscapeToNormal(Start);
+            Vector3 end = Geometry.GeoscapeToNormal(End);
+
             // Calculate the start and end point for every line, can be optimized
             // because each point's end is the next one's start
-            for (int i = 0; i < steps - 1; i++)
+            for (ushort i = 0; i < steps - 1; i++)
             {
                 float fraction_start = (float)i / (steps - 1);
                 float fraction_end = (float)(i + 1) / (steps - 1);
 
-                Vector3 segment_start = (Start * (1 - fraction_start) + End * fraction_start).normalized;
-                Vector3 segment_end   = (Start * (1 - fraction_end)   + End * fraction_end).normalized;
+                Vector3 segment_start = (start * (1 - fraction_start) + end * fraction_start).normalized;
+                Vector3 segment_end   = (start * (1 - fraction_end)   + end * fraction_end).normalized;
 
                 // Draw a line between segment_start and segment_end (in geoscape coordinates)
                 PulseLine line = UnityEngine.Object.Instantiate(_prefabLine, parent.transform);
@@ -84,10 +142,17 @@ namespace Geoshape
             // TODO: update line to remove passed segments
         }
 
+        /// <summary>
+        /// Return the position <paramref name="distance_km"/> km away when following this 
+        /// great circle from the location with normal vector <paramref name="position"/> 
+        /// </summary>
         public Vector3 MoveDistanceFrom(Vector3 position, float distance_km)
         {
             float angle = Geometry.AngleFromDistance(distance_km);
-            Vector3 direction = Vector3.Cross(GreatCircle, position);
+            Vector3 start = Geometry.GeoscapeToNormal(Start);
+            Vector3 end   = Geometry.GeoscapeToNormal(End);
+            Vector3 greatCircle = Vector3.Cross(start, end);
+            Vector3 direction = Vector3.Cross(greatCircle, position);
             return position * Mathf.Cos(angle) + direction * Mathf.Sin(angle);
         }
 
@@ -99,6 +164,27 @@ namespace Geoshape
             Vector2 position_close = MoveDistanceFrom(position_geoscape, 1);
             Vector2 difference = position_close - position_geoscape;
             return difference.normalized;
+        }
+
+        /// <summary>
+        /// Get the <see cref="PulseLineIconController"/> of <paramref name="entity"/>, if it exists
+        /// </summary>
+        private static PulseLineIconController FindPulseLineController(Entity entity)
+        {
+            if (!entity.HasGeoscapeIcons())
+                return null;
+
+            foreach (Entity icon in entity.GeoscapeIcons())
+            {
+                if (!icon.HasUIControllers())
+                    continue;
+
+                foreach (IUIController controller in icon.UIControllers())
+                    if (controller is PulseLineIconController pulselineController)
+                        return pulselineController;
+            }
+
+            return null;
         }
     }
 }
