@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -121,9 +121,9 @@ namespace Geoshape
                     return midpoint;
 
                 if (Mathf.Sign(value) == Mathf.Sign(function(lowerBound)))
-                    lowerBound = value;
+                    lowerBound = midpoint;
                 else
-                    upperBound = value;
+                    upperBound = midpoint;
 
                 i++;
             }
