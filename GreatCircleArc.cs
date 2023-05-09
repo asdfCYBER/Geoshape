@@ -51,11 +51,19 @@ namespace Geoshape
         public static GreatCircleArc GetArc(Entity entity)
         {
             Vector2 targetPosition = entity.Goal().Value.Position();
+            return GetArc(entity, targetPosition);
+        }
+
+        /// <summary>
+        /// Return the great circle arc that <paramref name="entity"/> is following
+        /// </summary>
+        public static GreatCircleArc GetArc(Entity entity, Vector2 targetPosition)
+        {
             if (Arcs.TryGetValue(entity.ID, out GreatCircleArc arc))
             {
                 // Update the arc if the target position has changed
                 if (arc.End != targetPosition)
-                    arc.Update(entity);
+                    arc.Update(entity, targetPosition);
 
                 return arc;
             }
@@ -63,19 +71,20 @@ namespace Geoshape
             {
                 // No arc exists yet, so create a new one
                 PulseLineIconController parent = FindPulseLineController(entity);
-                Arcs[entity.ID] = new GreatCircleArc(entity.Position(), targetPosition, 100, parent);
+                Arcs[entity.ID] = new GreatCircleArc(entity.Position(), targetPosition, steps: 100, parent);
                 return Arcs[entity.ID];
             }
         }
 
         /// <summary>
         /// Update the start- and endpoint of the great circle arc <paramref name="entity"/>
-        /// is currently following, and redraw the lines accordingly.
+        /// is currently following, and redraw the lines accordingly. Set <paramref name="targetPosition"/>
+        /// if the point the entity should move to is not the same as the entity's goal's position.
         /// </summary>
-        public void Update(Entity entity)
+        public void Update(Entity entity, Vector2? targetPosition = null)
         {
             Start = entity.Position();
-            End = entity.Goal().Value.Position();
+            End = targetPosition ?? entity.Goal().Value.Position();
 
             // Calculate the updated positions for all lines
             if (Lines == null || Lines.Length == 0)
@@ -127,6 +136,8 @@ namespace Geoshape
                 line.gameObject.SetActive(true);
                 Lines[i] = line;
             }
+
+            parent.Visualizer.gameObject.SetActive(false);  // BUG: dos not work. Problem lies in FindPulseLineController probably
         }
 
         /// <summary>

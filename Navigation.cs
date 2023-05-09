@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,24 +20,31 @@ namespace Geoshape
                 return;
 
             if (StrategyArchetypes.CanMove.Accepts(target) && !target.IsLinkedToGoal(entity))
-                ToMovingTarget(entity, target, timeElapsed);
+                ToMovingTarget(entity, timeElapsed);
             else
-                ToStaticTarget(entity, target, timeElapsed);
+                ToStaticTarget(entity, timeElapsed);
         }
 
-        private static void ToMovingTarget(Entity entity, Entity target, TimeSpan timeElapsed)
+        private static void ToMovingTarget(Entity entity, TimeSpan timeElapsed)
         {
-            
+            Vector3 interceptionNormal = GetInterceptionPoint(entity, entity.Goal()).normalized;
+            Vector2 interceptionGeoscape = Geometry.NormalToGeoscape(interceptionNormal);
+            GreatCircleArc arc = GreatCircleArc.GetArc(entity, interceptionGeoscape);
+
+            // Get the elapsed time, multiply by the speed and
+            // move that much distance along the great circle
+            float hours = (float)timeElapsed.TotalHours;
+            float distance_km = AircraftSystem.ToKPH(entity.Speed()) * hours;
+            Vector2 newPosition = arc.MoveDistanceFrom((Vector2)entity.Position(), distance_km);
+            Vector2 direction = arc.DirectionAt((Vector2)entity.Position());
+
+            entity.AddPosition(newPosition);
+            entity.AddRotation(Quaternion.LookRotation(Vector3.forward, direction));
         }
 
-        private static void ToStaticTarget(Entity entity, Entity target, TimeSpan timeElapsed)
+        private static void ToStaticTarget(Entity entity, TimeSpan timeElapsed)
         {
             GreatCircleArc arc = GreatCircleArc.GetArc(entity);
-            if (arc == null)
-            {
-                Debug.Log($"[Geoshape] No great circle arc found for entity {entity})");
-                return;
-            }
 
             // Get the elapsed time, multiply by the speed and
             // move that much distance along the great circle
@@ -79,7 +86,7 @@ namespace Geoshape
                 }, lowerBound: 0f, upperBound: Geometry.Radius / intSpeed, 0.1f, 100);
 
             // No solution is found
-            if (float.IsNaN(interceptTime))
+            if (float.IsNaN(interceptTime)) // TODO: or interceptTime <= 0
             {
                 Debug.Log($"[Geoshape] No solution is found for {target.Name()}" +
                     $" trying to intercept {interceptor.Name()}!");
@@ -88,6 +95,8 @@ namespace Geoshape
 
             // A solution is found, the position is calculated and converted to normal vector
             float distance = tarSpeed * interceptTime;
+            Debug.Log($"[Geoshape] {interceptor} is intercepting {target}. interception time: {interceptTime}, distance: {distance}, interception point (geoscape coordinates): {Geometry.NormalToGeoscape(targetArc.MoveDistanceFrom(tarPos, distance))}");
+
             return targetArc.MoveDistanceFrom(tarPos, distance);
         }
 
