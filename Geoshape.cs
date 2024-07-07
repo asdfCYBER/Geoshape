@@ -33,6 +33,10 @@ namespace Geoshape
             {
                 Debug.Log($"[Geoshape] exception during patching: {e.GetType()} | {e.Message} | {e.InnerException}");
             }
+
+            #if DEBUG
+            Tests.GeometryTest.Test();
+            #endif
         }
     }
 }

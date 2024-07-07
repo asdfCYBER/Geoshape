@@ -63,7 +63,7 @@ namespace Geoshape
             if (targetArc == null)
             {
                 Debug.Log($"[Geoshape] Unable to get the great circle for {target.Name()}");
-                return target.Position();
+                return target.Position(); // TODO: fix wrong coordinate system
             }
 
             // Values that can be considered constants. tar = target, int = interceptor
@@ -75,14 +75,14 @@ namespace Geoshape
             // The interception position lies a distance interceptorSpeed * t away from
             // interceptorPosition, and a distance targetSpeed * t away from targetPosition.
             // The target moves along a known great circle arc. Therefore the equation
-            // ||targetPosition(t)-interceptorPosition(t=0)||^2 - (interceptorSpeed*t)^2 = 0
+            // ||targetPosition(t)-interceptorPosition(t=0)||^2 - (interceptorSpeed*t)^2 = 0   // not norm of difference but distance over surface!
             // has to be solved for t, from which we can calculate the interception position.
             // I couldn't find an explicit solution for t, so the bisection method is used.
             // The function is definitely negative for t = radius of Earth / interceptorSpeed
             // and definitely positive for t = 0, so these are used as bounds.
             float interceptTime = BisectionMethod(delegate (float t) {
-                    Vector3 tarPosAtT = targetArc.MoveDistanceFrom(tarPos, tarSpeed * t);
-                    return (tarPosAtT - intPos).sqrMagnitude - (intSpeed * t).Square();
+                    Vector3 tarPosAtT = targetArc.MoveDistanceFrom(tarPos.normalized, tarSpeed * t);
+                    return Geometry.DistanceBetweenPoints(tarPosAtT.normalized, intPos.normalized) - (intSpeed * t);
                 }, lowerBound: 0f, upperBound: Geometry.Radius / intSpeed, 0.1f, 100);
 
             // No solution is found
@@ -95,9 +95,13 @@ namespace Geoshape
 
             // A solution is found, the position is calculated and converted to normal vector
             float distance = tarSpeed * interceptTime;
-            Debug.Log($"[Geoshape] {interceptor} is intercepting {target}. interception time: {interceptTime}, distance: {distance}, interception point (geoscape coordinates): {Geometry.NormalToGeoscape(targetArc.MoveDistanceFrom(tarPos, distance))}");
+            Vector3 interceptionPoint = targetArc.MoveDistanceFrom(tarPos.normalized, distance);
+            Debug.Log($"[Geoshape] distance: {distance}, current pos: {tarPos.normalized}, interception pos: {interceptionPoint}, distancebetweenpoints: {Geometry.DistanceBetweenPoints(tarPos.normalized, interceptionPoint.normalized)}");
 
-            return targetArc.MoveDistanceFrom(tarPos, distance);
+            Debug.Log($"[Geoshape] {interceptor} is intercepting {target}. interception time: {interceptTime}, distance: {distance}, interception point (geoscape coordinates): {Geometry.NormalToGeoscape(interceptionPoint)}");
+            Debug.Log($"[Geoshape] intspeed: {intSpeed}, tarspeed: {tarSpeed}. Distance to intercept for int: {Geometry.DistanceBetweenPoints(intPos.normalized, interceptionPoint.normalized)}, for tar: {Geometry.DistanceBetweenPoints(tarPos.normalized, interceptionPoint.normalized)}");
+
+            return targetArc.MoveDistanceFrom(tarPos.normalized, distance);
         }
 
         /// <summary>

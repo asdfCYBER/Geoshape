@@ -27,7 +27,7 @@ namespace Geoshape
         {
             // latitude correction (GEOSCAPE_DIMENSIONS.y / 2 is not at zero latitude)
             position_geoscape -= _originCorrection;
-
+            
             // all longitudes are represented on the map, but not all latitudes
             float longitude = position_geoscape.x / StrategyConstants.GEOSCAPE_PLAYABLE_BOUNDS.width * 360;
             float latitude = position_geoscape.y / 5.327f;  // estimate, roughly equal to height*140 degrees
