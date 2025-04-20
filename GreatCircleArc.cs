@@ -17,7 +17,7 @@ namespace Geoshape
         public Vector2 End { get; private set; }
         private PulseLine[] Lines { get; }
 
-        private static readonly PulseLine _prefabLine = null;// StrategyConstants.DEFAULT_PULSE_LINE.Get();
+        private static readonly PulseLine _prefabLine = StrategyConstants.DEFAULT_PULSE_LINE.Get();
         private static readonly float _northpoleYCoord = Geometry.GCSToGeoscape(new Vector2(90, 0)).y;
 
         /// <summary>
@@ -166,25 +166,7 @@ namespace Geoshape
             Vector3 greatCircle = Vector3.Cross(start, end);
 
             Vector3 direction = Vector3.Cross(greatCircle, position);
-            return position * Mathf.Cos(angle) + direction * Mathf.Sin(angle);
-        }
-
-        public Vector3 MoveDistanceFrom2(Vector3 a, float distance_km)
-        {
-            Vector3 N = new Vector3(0, 0, 1);
-            Vector3 c1 = Vector3.Cross(a, Geometry.GeoscapeToNormal(End));
-            Vector3 c2 = Vector3.Cross(a, N);
-            float sintheta = Vector3.Cross(c1, c2).Norm() * Mathf.Sign(Vector3.Dot(Vector3.Cross(c1, c2), a));
-            float costheta = Vector3.Dot(c1, c2);
-            float theta = Mathf.Atan2(sintheta, costheta);
-
-            Vector3 de = Vector3.Cross(N, a);
-            Vector3 dn = Vector3.Cross(a, de);
-            Vector3 d = dn * costheta + de * sintheta;
-
-            float angle = Geometry.AngleFromDistance(distance_km);
-            Vector3 b = a * Mathf.Cos(angle) + d * Mathf.Sin(angle);
-            return b;
+            return position.normalized * Mathf.Cos(angle) + direction.normalized * Mathf.Sin(angle);
         }
 
         /// <summary>

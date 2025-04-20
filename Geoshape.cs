@@ -34,8 +34,9 @@ namespace Geoshape
                 Debug.Log($"[Geoshape] exception during patching: {e.GetType()} | {e.Message} | {e.InnerException}");
             }
 
+            // TODO: delay tests until strategy layer is loaded to prevent crashing
             #if DEBUG
-            Tests.GeometryTest.Test();
+            //Tests.GeometryTest.Test();
             #endif
         }
     }

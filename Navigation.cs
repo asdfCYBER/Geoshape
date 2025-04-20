@@ -83,7 +83,7 @@ namespace Geoshape
             float interceptTime = BisectionMethod(delegate (float t) {
                     Vector3 tarPosAtT = targetArc.MoveDistanceFrom(tarPos.normalized, tarSpeed * t);
                     return Geometry.DistanceBetweenPoints(tarPosAtT.normalized, intPos.normalized) - (intSpeed * t);
-                }, lowerBound: 0f, upperBound: Geometry.Radius / intSpeed, 0.1f, 100);
+                }, lowerBound: 0f, upperBound: Mathf.PI * Geometry.Radius / intSpeed, 0.1f, 100);
 
             // No solution is found
             if (float.IsNaN(interceptTime)) // TODO: or interceptTime <= 0
@@ -101,7 +101,7 @@ namespace Geoshape
             Debug.Log($"[Geoshape] {interceptor} is intercepting {target}. interception time: {interceptTime}, distance: {distance}, interception point (geoscape coordinates): {Geometry.NormalToGeoscape(interceptionPoint)}");
             Debug.Log($"[Geoshape] intspeed: {intSpeed}, tarspeed: {tarSpeed}. Distance to intercept for int: {Geometry.DistanceBetweenPoints(intPos.normalized, interceptionPoint.normalized)}, for tar: {Geometry.DistanceBetweenPoints(tarPos.normalized, interceptionPoint.normalized)}");
 
-            return targetArc.MoveDistanceFrom(tarPos.normalized, distance);
+            return interceptionPoint;
         }
 
         /// <summary>
