@@ -63,7 +63,9 @@
     <Compile Include="Geometry.cs" />
     <Compile Include="Geoshape.cs" />
     <Compile Include="GreatCircleArc.cs" />
+    <Compile Include="Logging\DumpGameObject.cs" />
     <Compile Include="Navigation.cs" />
+    <Compile Include="Patches\GeoscapeUpdateBasePositionPatch.cs" />
     <Compile Include="Patches\MoveEntitiesOnGeoscapePatch.cs" />
     <Compile Include="Patches\DisableOriginalNavigationPatch.cs" />
     <Compile Include="Patches\DistanceToTargetPatch.cs" />
