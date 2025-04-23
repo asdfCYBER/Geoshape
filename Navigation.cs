@@ -75,18 +75,18 @@ namespace Geoshape
             // The interception position lies a distance interceptorSpeed * t away from
             // interceptorPosition, and a distance targetSpeed * t away from targetPosition.
             // The target moves along a known great circle arc. Therefore the equation
-            // ||targetPosition(t)-interceptorPosition(t=0)||^2 - (interceptorSpeed*t)^2 = 0   // not norm of difference but distance over surface!
+            // t - distance(interceptor at t=0, target at t)/interceptor speed = 0
             // has to be solved for t, from which we can calculate the interception position.
-            // I couldn't find an explicit solution for t, so the bisection method is used.
+            // The bisection method is used to approximate this implicit equation.
             // The function is definitely negative for t = radius of Earth / interceptorSpeed
             // and definitely positive for t = 0, so these are used as bounds.
             float interceptTime = BisectionMethod(delegate (float t) {
-                    Vector3 tarPosAtT = targetArc.MoveDistanceFrom(tarPos.normalized, tarSpeed * t);
-                    return Geometry.DistanceBetweenPoints(tarPosAtT.normalized, intPos.normalized) - (intSpeed * t);
-                }, lowerBound: 0f, upperBound: Mathf.PI * Geometry.Radius / intSpeed, 0.1f, 100);
+                    Vector3 tarPosAtT = targetArc.MoveDistanceFrom(tarPos, tarSpeed * t);
+                    return t - Geometry.DistanceBetweenPoints(tarPosAtT, intPos) / intSpeed;
+                }, lowerBound: 0f, upperBound: Mathf.PI * Geometry.Radius / intSpeed);
 
             // No solution is found
-            if (float.IsNaN(interceptTime)) // TODO: or interceptTime <= 0
+            if (float.IsNaN(interceptTime) || interceptTime <= 0)
             {
                 Debug.Log($"[Geoshape] No solution is found for {target.Name()}" +
                     $" trying to intercept {interceptor.Name()}!");
@@ -96,10 +96,10 @@ namespace Geoshape
             // A solution is found, the position is calculated and converted to normal vector
             float distance = tarSpeed * interceptTime;
             Vector3 interceptionPoint = targetArc.MoveDistanceFrom(tarPos.normalized, distance);
-            Debug.Log($"[Geoshape] distance: {distance}, current pos: {tarPos.normalized}, interception pos: {interceptionPoint}, distancebetweenpoints: {Geometry.DistanceBetweenPoints(tarPos.normalized, interceptionPoint.normalized)}");
 
-            Debug.Log($"[Geoshape] {interceptor} is intercepting {target}. interception time: {interceptTime}, distance: {distance}, interception point (geoscape coordinates): {Geometry.NormalToGeoscape(interceptionPoint)}");
-            Debug.Log($"[Geoshape] intspeed: {intSpeed}, tarspeed: {tarSpeed}. Distance to intercept for int: {Geometry.DistanceBetweenPoints(intPos.normalized, interceptionPoint.normalized)}, for tar: {Geometry.DistanceBetweenPoints(tarPos.normalized, interceptionPoint.normalized)}");
+            Debug.Log($"[Geoshape] {interceptor.Name()} is intercepting {target.Name()}. " +
+                $"Expected interception time: {interceptTime}, distance: {distance}, interception" +
+                $" point (geoscape coordinates): {Geometry.NormalToGeoscape(interceptionPoint)}");
 
             return interceptionPoint;
         }
@@ -112,8 +112,8 @@ namespace Geoshape
         /// <paramref name="maxIterations"/> is reached.
         /// </summary>
         /// <returns>The solution, or NaN if no solution has been found</returns>
-        private static float BisectionMethod(Func<float, float> function,
-            float lowerBound, float upperBound, float tolerance, ushort maxIterations)
+        private static float BisectionMethod(Func<float, float> function, float lowerBound,
+            float upperBound, float tolerance = 0.1f, ushort maxIterations = 100)
         {
             // Input validation
             if (lowerBound > upperBound)
