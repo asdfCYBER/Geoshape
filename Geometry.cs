@@ -8,7 +8,9 @@ namespace Geoshape
     {
         public const int Radius = 6371;  //  Radius of Earth in km
 
-        private static Vector2 _originCorrection = new Vector2(897, 464);  // Move the origin to Null Island
+        private static readonly Vector2 _originCorrection = new Vector2(897, 464);  // Null Island
+        private static readonly float _northpoleYCoord = Geometry.GCSToGeoscape(new Vector2(90, 0)).y;
+
 
         #region Some things UnityEngine.Mathf should have but doesn't
         private static float DegToRad(float degrees) => degrees * PI / 180f;
@@ -25,6 +27,10 @@ namespace Geoshape
         /// </summary>
         public static Vector2 GeoscapeToGCS(Vector2 position_geoscape)
         {
+            // Ensure the coordinates are valid
+            if (position_geoscape.y > _northpoleYCoord)
+                position_geoscape.y = _northpoleYCoord;
+
             // latitude correction (GEOSCAPE_DIMENSIONS.y / 2 is not at zero latitude)
             position_geoscape -= _originCorrection;
             
@@ -93,6 +99,7 @@ namespace Geoshape
             => Radius * GeoscapeToNormal(position_geoscape);
         #endregion
 
+        #region Utility functions
         /// <summary>
         /// Return the central angle between two points
         /// </summary>
@@ -122,5 +129,6 @@ namespace Geoshape
         /// </summary>
         public static float TimeBetweenPoints(Vector3 normalA, Vector3 normalB, float speed)
             => DistanceBetweenPoints(normalA, normalB) / speed;
+        #endregion
     }
 }

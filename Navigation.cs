@@ -1,13 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Artitas;
 using UnityEngine;
-using Xenonauts.Strategy;
-using Xenonauts.Strategy.Scripts;
-using Xenonauts.Strategy.Systems;
 using Xenonauts.Strategy.Factories;
+using Xenonauts.Strategy.Systems;
 
 namespace Geoshape
 {
@@ -15,60 +10,85 @@ namespace Geoshape
     {
         public static void MoveEntity(Entity entity, TimeSpan timeElapsed)
         {
+            float hours = (float)timeElapsed.TotalHours;
+            float distance_km = AircraftSystem.ToKPH(entity.Speed()) * hours;
+            MoveEntity(entity, distance_km);
+        }
+
+        /// <summary>
+        /// Move <paramref name="entity"/> by <paramref name="distance"/> km
+        /// towards its goal and update its orientation
+        /// </summary>
+        public static void MoveEntity(Entity entity, float distance)
+        {
+            Vector2 currentPos = entity.Position();
+            Vector3 currentPosNormal = Geometry.GeoscapeToNormal(currentPos);
+            Vector3 targetNormal = GetTargetPosition(entity);
+
+            // Calculate the position the entity is at after travelling distance_km to its goal
+            Vector3 newPosNormal = TowardsTargetDistance(currentPosNormal, targetNormal, distance);
+            Vector2 newPos = Geometry.NormalToGeoscape(newPosNormal);
+            Vector2 direction = (newPos - currentPos).normalized;
+
+            entity.AddPosition(newPos);
+            entity.AddRotation(Quaternion.LookRotation(Vector3.forward, direction));
+            GreatCircleArc.Update(entity, currentPosNormal, targetNormal);
+        }
+
+        /// <summary>
+        /// Return the current position if there is no target, the expected interception
+        /// point if the target can move, and the target's position if it is static
+        /// </summary>
+        public static Vector3 GetTargetPosition(Entity entity)
+        {
             Entity target = entity.Goal();
-            if (!target.HasPosition())
-                return;
 
-            if (StrategyArchetypes.CanMove.Accepts(target) && !target.IsLinkedToGoal(entity))
-                ToMovingTarget(entity, timeElapsed);
+            if (target is null || !target.HasPosition())
+                return Geometry.GeoscapeToNormal(entity.Position());
+            else if (StrategyArchetypes.CanMove.Accepts(target) && !target.IsLinkedToGoal(entity))
+                return GetInterceptionPoint(entity, target);
             else
-                ToStaticTarget(entity, timeElapsed);
+                return Geometry.GeoscapeToNormal(target.Position());
         }
 
-        private static void ToMovingTarget(Entity entity, TimeSpan timeElapsed)
+        /// <summary>
+        /// Return the position <paramref name="distance"/> km away from the location with
+        /// normal vector <paramref name="origin"/> in the direction of <paramref name="target"/>
+        /// </summary>
+        public static Vector3 TowardsTargetDistance(Vector3 origin, Vector3 target, float distance)
         {
-            Vector3 interceptionNormal = GetInterceptionPoint(entity, entity.Goal()).normalized;
-            Vector2 interceptionGeoscape = Geometry.NormalToGeoscape(interceptionNormal);
-            GreatCircleArc arc = GreatCircleArc.GetArc(entity, interceptionGeoscape);
+            Vector3 greatCircle = Vector3.Cross(origin, target);
+            Vector3 direction = Vector3.Cross(greatCircle, origin);
 
-            // Get the elapsed time, multiply by the speed and
-            // move that much distance along the great circle
-            float hours = (float)timeElapsed.TotalHours;
-            float distance_km = AircraftSystem.ToKPH(entity.Speed()) * hours;
-            Vector2 newPosition = arc.MoveDistanceFrom((Vector2)entity.Position(), distance_km);
-            Vector2 direction = arc.DirectionAt((Vector2)entity.Position());
-
-            entity.AddPosition(newPosition);
-            entity.AddRotation(Quaternion.LookRotation(Vector3.forward, direction));
+            float angle = Geometry.AngleFromDistance(distance);
+            return origin.normalized * Mathf.Cos(angle) + direction.normalized * Mathf.Sin(angle);
         }
 
-        private static void ToStaticTarget(Entity entity, TimeSpan timeElapsed)
+        /// <summary>
+        /// Return the position when travelling <paramref name="distance"/> from 
+        /// <paramref name="origin"/> at heading <paramref name="heading"/>
+        /// </summary>
+        public static Vector3 TowardsHeadingDistance(Vector3 origin, float heading, float distance)
         {
-            GreatCircleArc arc = GreatCircleArc.GetArc(entity);
+            Vector3 north = Vector3.forward;
+            Vector3 directionEast = Vector3.Cross(north, origin);
+            Vector3 directionNorth = Vector3.Cross(origin, directionEast);
+            Vector3 direction = directionNorth * Mathf.Cos(heading) + directionNorth * Mathf.Sin(heading);
 
-            // Get the elapsed time, multiply by the speed and
-            // move that much distance along the great circle
-            float hours = (float)timeElapsed.TotalHours;
-            float distance_km = AircraftSystem.ToKPH(entity.Speed()) * hours;
-            Vector2 newPosition = arc.MoveDistanceFrom((Vector2)entity.Position(), distance_km);
-            Vector2 direction = arc.DirectionAt((Vector2)entity.Position());
-
-            entity.AddPosition(newPosition);
-            entity.AddRotation(Quaternion.LookRotation(Vector3.forward, direction));
+            float angle = Geometry.AngleFromDistance(distance);
+            return origin.normalized * Mathf.Cos(angle) + direction.normalized * Mathf.Sin(angle);
         }
 
+        /// <summary>
+        /// Find the point at which <paramref name="interceptor"/> can meet
+        /// <paramref name="target"/> given that the target does not change course
+        /// </summary>
         private static Vector3 GetInterceptionPoint(Entity interceptor, Entity target)
         {
-            GreatCircleArc targetArc = GreatCircleArc.GetArc(target);
-            if (targetArc == null)
-            {
-                Debug.Log($"[Geoshape] Unable to get the great circle for {target.Name()}");
-                return target.Position(); // TODO: fix wrong coordinate system
-            }
-
             // Values that can be considered constants. tar = target, int = interceptor
-            Vector3 tarPos = Geometry.GeoscapeToCartesianPosition(target.Position());
-            Vector3 intPos = Geometry.GeoscapeToCartesianPosition(interceptor.Position());
+            Vector3 tarPos = Geometry.GeoscapeToNormal(target.Position());
+            Vector3 tarGoalPos = Geometry.GeoscapeToNormal(target.Goal().Value.Position());
+            Vector3 intPos = Geometry.GeoscapeToNormal(interceptor.Position());
             float intSpeed = AircraftSystem.ToKPH(interceptor.Speed());
             float tarSpeed = AircraftSystem.ToKPH(target.Speed());
 
@@ -77,11 +97,11 @@ namespace Geoshape
             // The target moves along a known great circle arc. Therefore the equation
             // t - distance(interceptor at t=0, target at t)/interceptor speed = 0
             // has to be solved for t, from which we can calculate the interception position.
-            // The bisection method is used to approximate this implicit equation.
-            // The function is definitely negative for t = radius of Earth / interceptorSpeed
-            // and definitely positive for t = 0, so these are used as bounds.
+            // The bisection method is used to approximate this implicit equation. The function
+            // is definitely negative for t = half the Earth's circumference / interceptorSpeed
+            // and definitely positive for t = 0, so those are used as bounds.
             float interceptTime = BisectionMethod(delegate (float t) {
-                    Vector3 tarPosAtT = targetArc.MoveDistanceFrom(tarPos, tarSpeed * t);
+                    Vector3 tarPosAtT = TowardsTargetDistance(tarPos, tarGoalPos, tarSpeed * t);
                     return t - Geometry.DistanceBetweenPoints(tarPosAtT, intPos) / intSpeed;
                 }, lowerBound: 0f, upperBound: Mathf.PI * Geometry.Radius / intSpeed);
 
@@ -95,7 +115,7 @@ namespace Geoshape
 
             // A solution is found, the position is calculated and converted to normal vector
             float distance = tarSpeed * interceptTime;
-            Vector3 interceptionPoint = targetArc.MoveDistanceFrom(tarPos.normalized, distance);
+            Vector3 interceptionPoint = TowardsTargetDistance(tarPos, tarGoalPos, distance);
 
             Debug.Log($"[Geoshape] {interceptor.Name()} is intercepting {target.Name()}. " +
                 $"Expected interception time: {interceptTime}, distance: {distance}, interception" +
