@@ -1,11 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Artitas;
-using Common.UI.DataStructures;
+using Strategy.UI.Components.UI;
 using UnityEngine;
 using Xenonauts.Strategy;
 using Xenonauts.Strategy.Scripts;
 using Xenonauts.Strategy.UI;
+using Geoshape.Logging;
 
 namespace Geoshape
 {
@@ -18,39 +19,9 @@ namespace Geoshape
         /// </summary>
         public static void Update(Entity entity, Vector3 start, Vector3 end)
         {
-            // Calculate the updated positions for all lines
-            //if (Lines == null || Lines.Length == 0)
-            //return;
-
-            //Debug.Log($"[Geoshape] Components in entity {entity.Name()}:");
-            //foreach (var component in entity.GetComponents())
-            //{
-            //    Debug.Log(component.ToString());
-            //}
-
             var plcs = FindPulseLineControllers(entity);
-            Debug.Log($"[Geoshape] {plcs.Count} pulselinecontrollers found");
             foreach (PulseLineIconController plc in plcs)
-                Draw(20, plc, start, end);
-
-            /*Vector3 start = Geometry.GeoscapeToNormal(Start);
-            Vector3 end = Geometry.GeoscapeToNormal(End);
-
-            for (ushort i = 0; i < Lines.Length; i++)
-            {
-                float fraction_start = (float)i / (Lines.Length - 1);
-                float fraction_end = (float)(i + 1) / (Lines.Length - 1);
-                
-                Vector3 segment_start = (start * (1 - fraction_start) + end * fraction_start).normalized;
-                Vector3 segment_end   = (start * (1 - fraction_end)   + end * fraction_end).normalized;
-
-                // Update the lines
-                if (Lines[i] != null)
-                {
-                    Lines[i].Start = Geometry.NormalToGeoscape(segment_start);
-                    Lines[i].End = Geometry.NormalToGeoscape(segment_end);
-                }
-            }*/
+                Draw(100, plc, start, end);
         }
 
         /// <summary>
@@ -58,40 +29,48 @@ namespace Geoshape
         /// </summary>
         private static void Draw(ushort steps, PulseLineIconController plc, Vector3 start, Vector3 end)
         {
-            Debug.Log("[Geoshape] Components in plc:");
-
-            if (!plc.Visualizer._lineObj.TryGetComponent(out LineRenderer line))
-                line = plc.Visualizer._lineObj.gameObject.AddComponent<LineRenderer>();
-
-            line.positionCount = steps;
-            line.startColor = Color.white;
-            line.endColor = Color.white;
-            line.enabled = true;
-            //line.useWorldSpace = true;
-
-            // Calculate the start and end point for every line segment
-            Vector3[] positions = new Vector3[steps];
-            for (ushort i = 0; i < steps - 1; i++)
+            GameObject lineObj = plc.transform.Find("line")?.gameObject;
+            LineRenderer line;
+            if (lineObj == null)
             {
-                float fraction_start = (float)i / (steps - 1);
-                //float fraction_end = (float)(i + 1) / (steps - 1);
-
-                Vector3 segment_start = (start * (1 - fraction_start) + end * fraction_start).normalized;
-                //Vector3 segment_end   = (start * (1 - fraction_end)   + end * fraction_end).normalized;
-                positions[i] = Geometry.NormalToGeoscape(segment_start);
-                positions[i] = plc.Visualizer.RenderCamera.WorldToScreenPoint(positions[i]);
-
-                // Draw a line between segment_start and segment_end (in geoscape coordinates)
-                //PulseLine line = UnityEngne.Object.Instantiate(_prefabLine, parent.transform);
-                //line.Start = Geometry.NormalToGeoscape(segment_start);
-                //line.End = Geometry.NormalToGeoscape(segment_end);
-                //line.RenderCamera = parent.Visualizer.RenderCamera;
-                //line.gameObject.SetActive(true);
-                //Lines[i] = line;
+                Debug.Log($"[Geoshape] Creating new line for {plc.transform.name}");
+                lineObj = new GameObject("line");
+                lineObj.name = "line";
+                lineObj.transform.SetParent(plc.transform, true);
+                lineObj.transform.localPosition = plc.Visualizer.transform.localPosition;
+                lineObj.transform.localScale = plc.Visualizer.transform.localScale;
+                lineObj.SetActive(true);
+                line = lineObj.AddComponent<LineRenderer>();
+                line.startWidth = 2f;
+                line.endWidth = 2f;
+                line.material = new Material(Shader.Find("Unlit/Color"));
+                line.material.color = Color.yellow;
+                line.useWorldSpace = true;
+                plc.Visualizer._lineObj.gameObject.SetActive(false);
+            }
+            else
+            {
+                line = lineObj.GetComponent<LineRenderer>();
             }
             
+            // Calculate the start and end point for every line segment
+            Vector3[] positions = new Vector3[steps];
+            line.positionCount = steps;
+            for (ushort i = 0; i < steps; i++)
+            {
+                float fraction = (float)i / (steps - 1);
+
+                Vector3 position_normal = (start * (1 - fraction) + end * fraction).normalized;
+                Vector3 position = Geometry.NormalToGeoscape(position_normal);
+                if (plc.Screen == GeoscapeScreenComponent.Target.Left)
+                    position.x -= StrategyConstants.GEOSCAPE_DIMENSIONS.x;
+                else if (plc.Screen == GeoscapeScreenComponent.Target.Right)
+                    position.x += StrategyConstants.GEOSCAPE_DIMENSIONS.x;
+                position.z = -4;
+                positions[i] = position;
+            }
+
             line.SetPositions(positions);
-            //parent.Visualizer.gameObject.SetActive(false);  // BUG: dos not work. Problem lies in FindPulseLineController probably
         }
 
         /// <summary>

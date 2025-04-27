@@ -15,7 +15,6 @@ namespace Geoshape.Tests
             Vector2 end = new Vector2(0, 90);
             Vector3 end_n = Geometry.GCSToNormal(end);
 
-            GreatCircleArc arc = new GreatCircleArc(Geometry.GCSToGeoscape(start), Geometry.GCSToGeoscape(end), 0, null);
             Vector3 newpos_n = Navigation.TowardsTargetDistance(start_n, end_n, Geometry.Radius * Mathf.PI / 4f); // move halfway
             Vector2 newpos = Geometry.NormalToGCS(newpos_n);
 
